@@ -1,73 +1,157 @@
 Alcohol Label Verification App
 
-A lightweight web application that uses FastAPI + Tesseract OCR to analyze alcohol label images and verify whether the visible text matches user-provided product information.
+A FastAPI-based OCR web application that verifies key alcohol label information against a simplified TTB-style submission form.
+This project extracts text from an uploaded image using Tesseract OCR, compares it to user-entered data, and returns a clear PASS/FAIL result with per-field explanations.
+
+🔗 Live App: https://alcohol-label-verifier.onrender.com/
+    This instance is deployed on Render, using a custom Dockerfile that installs Tesseract OCR in a Linux environment.
 
 🚀 Features
-Upload an image of an alcohol label
-Extract visible text using Tesseract OCR
-Validate extracted text against user inputs:
+    ✔ Upload an alcohol label image
+        Accepts JPG/PNG files via a simple HTML form.
+    ✔ Enter product information
+        Brand Name
+        Product Class / Type
+        Alcohol Content (ABV %)
+        Net Contents (Optional)
+    ✔ OCR extraction with Tesseract
+        Extracts text from the uploaded label using pytesseract.
+    ✔ Field-by-field verification
+        Checks label text against user inputs:
+            Brand Name
+            Product Type
+            Alcohol Content
+            Net Contents
+            Government Warning phrase (“GOVERNMENT WARNING”)
+    ✔ Clear PASS/FAIL results
+        Displays:
+            Overall result
+            Detailed field-by-field MATCH / MISMATCH
+            Raw OCR output (for debugging)
+
+🧠 Approach & Design Decisions
+    1. Simplification aligned with assignment requirements
+        The real TTB form is extremely detailed, but the prompt requests a simplified version.
+        I implemented only the required fields while keeping the workflow realistic.
+
+    2. FastAPI for speed + clarity
+    
+        FastAPI allows:
+            Quick backend development
+            Clean routing
+            Native support for file uploads
+            Easy local testing
+            Compatibility with Docker + Render
+        It was the best fit for this assignment.
+
+    3. Tesseract OCR integration
+        To support cross-platform usage:
+            On Windows, I explicitly point to the Tesseract executable.
+            On Linux (Render), Tesseract is installed via apt-get and auto-detected.
+        This makes the app portable.
+
+    4. Matching strategy:
+        Lowercasing and normalization
+        Regex-based detection for ABV and numeric content
+        Unit normalization (mL, ml, l, L)
+        Substring matching for type and brand
+        Government Warning check via string presence
+
+🔍 How the Matching Logic Works
     Brand Name
+        Case-insensitive substring search
+        Ignores punctuation & extra whitespace
+    
     Product Type
-    Alcohol Content (%)
+        Case-insensitive exact keyword match
+        Designed to detect common types like “Wine”, “Beer”, “Spirits”
+    
+    Alcohol Content (ABV)
+        Extract numeric value from form → e.g., "13.5%" → 13.5
+        Regex search for patterns in OCR output:
+            13.5%
+            13.5 %
+            ALC 13.5%
+    
     Net Contents
-    "Government Warning" phrase
-Display results as MATCH / MISMATCH
-Show raw OCR output for debugging
+        Normalize units:
+            750 ml, 750 mL, 750 ML → 750ml
+            1.5 L → 1.5l
+        Compare normalized strings
+    
+    Government Warning
+        Minimum requirement: OCR text must contain "government warning"
+        Full paragraph validation is optional (future enhancement)
 
-🛠️ Tech Stack
-Component	    Technology
-Backend	        FastAPI (Python)
-OCR Engine	    Tesseract (pytesseract wrapper)
-Frontend	    Simple HTML served by FastAPI
-Environment	    Python 3
+💻 Running the App Locally
+    1️⃣ Install Python 3.10+
 
-📦 Installation & Setup
+    2️⃣ Install Tesseract OCR
+        Windows installer:
+        https://github.com/UB-Mannheim/tesseract/wiki
+        Default path:C:\Program Files\Tesseract-OCR\tesseract.exe
+        The app auto-detects Tesseract on Windows.
 
-1️⃣ Install Tesseract OCR
-Download for Windows:
-https://github.com/UB-Mannheim/tesseract/wiki
+    3️⃣ Clone the Repository
+        git clone https://github.com/pfaisal/alcohol-label-verifier.git
+        cd alcohol-label-verifier
 
-Default path:
-C:\Program Files\Tesseract-OCR\tesseract.exe
-The application references this path directly.
+    4️⃣ Create a Virtual Environment
+        python -m venv venv
+        venv\Scripts\activate
 
-2️⃣ Create virtual environment
-python -m venv venv
-venv\Scripts\activate
+    5️⃣ Install Dependencies
+        pip install -r requirements.txt
 
-3️⃣ Install dependencies
-pip install -r requirements.txt
+    6️⃣ Run the App
+        uvicorn main:app --reload
+        Then open:    http://127.0.0.1:8000
 
-4️⃣ Run the application
-uvicorn main:app --reload
+🌐 Deployment (Render)
+    
+    Deployment is powered by a custom Dockerfile, which:
+        Installs Python
+        Installs Tesseract OCR (apt-get install tesseract-ocr)
+        Installs Python dependencies
+        Runs the server with:
+        uvicorn main:app --host 0.0.0.0 --port $PORT
+        This ensures the same behavior across local and production environments.
 
+🧪 Manual Test Cases
+The following test cases ensure robust behavior:
+    1. Perfect Match
+        All fields match the label → PASS.
+    2. Wrong Brand
+        Brand name mismatch → FAIL.
+    3. Wrong Product Type
+        Form says “Wine”, label says “Beer” → FAIL.
+    4. Incorrect Alcohol Content
+        Form says 13.5%, label shows 12% → FAIL.
+    5. Missing Government Warning
+        Warning phrase not detected → FAIL.
+    6. Partial Warning
+        Label includes partial text only → FAIL.
+    7. Blurry / Low-Quality OCR
+        OCR cannot extract text → FAIL with graceful error.
 
-Then open in your browser:  http://127.0.0.1:8000
+📌 Assumptions
+    Uploaded labels are in English
+    OCR quality depends on image quality
+    Government warning only validated via keyword presence
+    Percentage symbol must appear in the OCR text for ABV
+    Users provide reasonable text inputs
 
-🧪 Usage Instructions
-Enter product details (brand, type, ABV, etc.)
-Upload a label image
-Submit the form
-Review: Per-field MATCH / MISMATCH
-        Raw OCR text
-        Verification summary
-
-⚠️ Assumptions & Limitations
-    OCR accuracy depends on image quality
-    Matching is exact text search (not fuzzy)
-    Government warning check only verifies presence of the phrase
-    Alcohol % must appear in standard format (e.g., 13.5%)
-
-📁 Project Structure    
-label-verifier/
-│
-├── main.py              # Main FastAPI application
-├── requirements.txt     # Python dependencies
-├── README.md            # Project documentation
-└── venv/                # Virtual environment (not needed for submission)
+⚠ Known Limitations
+    No fuzzy text matching (Levenshtein)
+    No bounding boxes or image highlighting
+    Sensitive to poor-quality images
+    Not optimized for mobile UI
+    Only a subset of TTB fields implemented
 
 🔮 Future Enhancements
-    Add fuzzy text matching for better tolerance
-    Improve UI styling
-    Add validation rules for full government warning text
-    Dockerfile for easy deployment
+    Add fuzzy string matching for noisy OCR
+    Validate full TTB-required government warning paragraph
+    Add bounding box visualization for detected text
+    Support more label fields (e.g., appellation, bottling location)
+    Add frontend styling or rebuild in React
+    Multi-language OCR detection
