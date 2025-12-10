@@ -6,9 +6,14 @@ import pytesseract
 import io
 import re
 import unicodedata
+import platform
+import pytesseract
 
-# Tell pytesseract exactly where Tesseract is installed on your machine
-pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+# Only set the Windows path when running on Windows.
+if platform.system() == "Windows":
+    pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+# On Linux (Render), Tesseract will be installed via apt-get and available in PATH,
+# so pytesseract will find it automatically.
 
 app = FastAPI()
 
